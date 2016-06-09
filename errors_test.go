@@ -57,13 +57,6 @@ type nilError struct{}
 
 func (nilError) Error() string { return "nil error" }
 
-type causeError struct {
-	cause error
-}
-
-func (e *causeError) Error() string { return "cause error" }
-func (e *causeError) Cause() error  { return e.cause }
-
 func TestCause(t *testing.T) {
 	x := New("error")
 	tests := []struct {
@@ -87,7 +80,7 @@ func TestCause(t *testing.T) {
 		want: io.EOF,
 	}, {
 		// caused error returns cause
-		err:  &causeError{cause: io.EOF},
+		err:  Wrap(io.EOF, "ignored"),
 		want: io.EOF,
 	}, {
 		err:  x, // return from errors.New
@@ -118,30 +111,29 @@ func TestFprintError(t *testing.T) {
 		err:  io.EOF,
 		want: "EOF\n",
 	}, {
-		// caused error returns cause
-		err: &causeError{cause: io.EOF},
+		err: Wrap(io.EOF, "cause error"),
 		want: "EOF\n" +
-			"cause error\n",
+			"github.com/pkg/errors/errors_test.go:114: cause error\n",
 	}, {
 		err:  x, // return from errors.New
-		want: "github.com/pkg/errors/errors_test.go:106: error\n",
+		want: "github.com/pkg/errors/errors_test.go:99: error\n",
 	}, {
 		err: Wrap(x, "message"),
-		want: "github.com/pkg/errors/errors_test.go:106: error\n" +
-			"github.com/pkg/errors/errors_test.go:129: message\n",
+		want: "github.com/pkg/errors/errors_test.go:99: error\n" +
+			"github.com/pkg/errors/errors_test.go:121: message\n",
 	}, {
 		err: Wrap(io.EOF, "message"),
 		want: "EOF\n" +
-			"github.com/pkg/errors/errors_test.go:133: message\n",
+			"github.com/pkg/errors/errors_test.go:125: message\n",
 	}, {
 		err: Wrap(Wrap(x, "message"), "another message"),
-		want: "github.com/pkg/errors/errors_test.go:106: error\n" +
-			"github.com/pkg/errors/errors_test.go:137: message\n" +
-			"github.com/pkg/errors/errors_test.go:137: another message\n",
+		want: "github.com/pkg/errors/errors_test.go:99: error\n" +
+			"github.com/pkg/errors/errors_test.go:129: message\n" +
+			"github.com/pkg/errors/errors_test.go:129: another message\n",
 	}, {
 		err: Wrapf(x, "message"),
-		want: "github.com/pkg/errors/errors_test.go:106: error\n" +
-			"github.com/pkg/errors/errors_test.go:142: message\n",
+		want: "github.com/pkg/errors/errors_test.go:99: error\n" +
+			"github.com/pkg/errors/errors_test.go:134: message\n",
 	}}
 
 	for i, tt := range tests {
@@ -207,20 +199,20 @@ func TestStack(t *testing.T) {
 		want []fileline
 	}{{
 		New("ooh"), []fileline{
-			{"github.com/pkg/errors/errors_test.go", 209},
+			{"github.com/pkg/errors/errors_test.go", 201},
 		},
 	}, {
 		Wrap(New("ooh"), "ahh"), []fileline{
-			{"github.com/pkg/errors/errors_test.go", 213}, // this is the stack of Wrap, not New
+			{"github.com/pkg/errors/errors_test.go", 205}, // this is the stack of Wrap, not New
 		},
 	}, {
 		Cause(Wrap(New("ooh"), "ahh")), []fileline{
-			{"github.com/pkg/errors/errors_test.go", 217}, // this is the stack of New
+			{"github.com/pkg/errors/errors_test.go", 209}, // this is the stack of New
 		},
 	}, {
 		func() error { return New("ooh") }(), []fileline{
-			{"github.com/pkg/errors/errors_test.go", 221}, // this is the stack of New
-			{"github.com/pkg/errors/errors_test.go", 221}, // this is the stack of New's caller
+			{"github.com/pkg/errors/errors_test.go", 213}, // this is the stack of New
+			{"github.com/pkg/errors/errors_test.go", 213}, // this is the stack of New's caller
 		},
 	}, {
 		Cause(func() error {
@@ -228,9 +220,9 @@ func TestStack(t *testing.T) {
 				return Errorf("hello %s", fmt.Sprintf("world"))
 			}()
 		}()), []fileline{
-			{"github.com/pkg/errors/errors_test.go", 228}, // this is the stack of Errorf
-			{"github.com/pkg/errors/errors_test.go", 229}, // this is the stack of Errorf's caller
-			{"github.com/pkg/errors/errors_test.go", 230}, // this is the stack of Errorf's caller's caller
+			{"github.com/pkg/errors/errors_test.go", 220}, // this is the stack of Errorf
+			{"github.com/pkg/errors/errors_test.go", 221}, // this is the stack of Errorf's caller
+			{"github.com/pkg/errors/errors_test.go", 222}, // this is the stack of Errorf's caller's caller
 		},
 	}}
 	for _, tt := range tests {
